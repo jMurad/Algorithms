@@ -1,0 +1,239 @@
+package list
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type List struct {
+	length int
+	head   *node
+	tail   *node
+}
+
+type node struct {
+	value interface{}
+	prev  *node
+	next  *node
+}
+
+func addBegin(curr *List, v interface{}) {
+	newList := &List{value: v}
+	newList.Prev = curr.Prev
+	newList.Next = curr
+	newList.length = curr.length
+	if newList.Prev != nil {
+		newList.Prev.Next = newList
+	}
+	curr.Prev = newList
+}
+
+func addEnd(curr *List, v interface{}) {
+	newList := &List{value: curr.value}
+	newList.Prev = curr.Prev
+	newList.Next = curr
+	newList.length = curr.length
+	if newList.Prev != nil {
+		newList.Prev.Next = newList
+	}
+	curr.value = v
+	curr.Prev = newList
+}
+
+func (list *List) AddBegin(val ...interface{}) {
+	for _, v := range val {
+		if *list.length == 0 {
+			list.value = v
+			*list.length++
+		} else {
+			addBegin(list, v)
+			*list.length++
+		}
+	}
+}
+
+func (list *List) AddEnd(val ...interface{}) {
+	for _, v := range val {
+		if *list.length == 0 {
+			list.value = v
+			*list.length++
+		} else {
+			addEnd(list, v)
+			*list.length++
+		}
+	}
+}
+
+func New(val ...interface{}) (curr *List) {
+	var length int = 0
+	curr = &List{length: &length}
+	curr.AddEnd(val...)
+	return
+}
+
+func (list *List) GetValue() interface{} {
+	return list.value
+}
+
+func (list *List) SetValue(val interface{}) {
+	list.value = val
+}
+
+func (list *List) FindLeft(val interface{}) *List {
+	l := list
+	for {
+		if l.EqualValue(val) {
+			return l
+		}
+		if l.Prev == nil {
+			return nil
+		} else {
+			l = l.Prev
+		}
+	}
+}
+
+func (list *List) FindRight(val interface{}) *List {
+	l := list
+	for {
+		if l.EqualValue(val) {
+			return l
+		}
+		if l.Next == nil {
+			return nil
+		} else {
+			l = l.Next
+		}
+	}
+}
+
+func (list *List) Find(val interface{}) *List {
+	if result := list.FindLeft(val); result != nil {
+		return result
+	} else if result := list.FindRight(val); result != nil {
+		return result
+	} else {
+		return nil
+	}
+}
+
+func (list *List) Remove(val interface{}) bool {
+	first := list.Get(0)
+	if l := first.FindRight(val); l != nil {
+		prev := l.Prev
+		next := l.Next
+		if prev == nil {
+			next.Prev = nil
+		} else if next == nil {
+			prev.Next = nil
+		} else {
+			prev.Next = next
+			next.Prev = prev
+		}
+		*list.length--
+		return true
+	}
+	return false
+}
+
+func (list *List) Get(index int) *List {
+	curr := list
+	for curr.Prev != nil {
+		curr = curr.Prev
+	}
+
+	for index > 0 {
+		if curr.Next != nil {
+			curr = curr.Next
+			index--
+		} else {
+			return nil
+		}
+
+	}
+	return curr
+}
+
+func (list *List) Compare(l *List) bool {
+	if list != nil && l != nil {
+		return *list == *l
+	}
+	return false
+}
+
+func (list *List) Len() (i int) {
+	return *list.length
+}
+
+func (list *List) Tour(f func(l *List)) {
+	tmplist := list.Prev
+	for tmplist != nil {
+		f(tmplist)
+		tmplist = tmplist.Prev
+	}
+	tmplist = list.Next
+	for tmplist != nil {
+		f(tmplist)
+		tmplist = tmplist.Next
+	}
+}
+
+func (list *List) ReplaceValue(l *List) {
+	list.value, l.value = l.value, list.value
+}
+
+func (list *List) EqualValue(val interface{}) bool {
+	return reflect.ValueOf(list.value).Equal(reflect.ValueOf(val))
+}
+
+func (list *List) ToInt() int {
+	switch v := list.value.(type) {
+	case int:
+		return v
+	default:
+		return 0
+	}
+}
+
+func (list *List) All() (out []*List) {
+	l := list
+	for {
+		out = append(out, l)
+		if l.Prev == nil {
+			break
+		} else {
+			l = l.Prev
+		}
+	}
+	return
+}
+
+func (list *List) PrintAll() (str string) {
+	l := list
+	i := 0
+	for {
+		str += fmt.Sprintf("{%p} node #%d: %v\n", l, i, *l)
+		i++
+		if l.Prev == nil {
+			break
+		} else {
+			l = l.Prev
+		}
+	}
+	return
+}
+
+func (list *List) Insert(l *List) {
+	list.Next = l
+	l.Prev = list
+}
+
+//					&22		&25		*100
+//current	&23		Prev	Next	Value
+//							&90
+//
+//
+//					&89		&91		*400
+//add		&90		Prev	Next	Value
+//					&23
+//
