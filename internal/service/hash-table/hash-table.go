@@ -1,42 +1,108 @@
 package hashtable
 
 import (
-	"strings"
+	"crypto/sha256"
+	"fmt"
 
 	ll "abusafia.com/algorithms/internal/service/list"
 )
 
 type HashT struct {
-	primeNums []int
-	store     []ll.List
-	count     int
+	store []ll.List
+	count int
 }
 
 func New() *HashT {
-	store := make([]ll.List, 40)
+	store := make([]ll.List, 100)
 	return &HashT{store: store}
 }
 
-func (h *HashT) hash(key string) int {
-	filter := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	if len(h.primeNums) == 0 {
-		h.primeNums = make([]int, len(filter))
-		primeNumber(307).Tour(func(n *ll.Node, i int) bool {
-			h.primeNums[i] = ll.ToInt(n.Get())
-			return false
-		})
+func (h *HashT) Set(key string, value interface{}) {
+	if set(h.store, key, value) {
+		h.count++
+		h.resize()
 	}
-
-	sum := 0
-	for _, k := range key {
-		index := strings.IndexRune(filter, k)
-		sum += h.primeNums[index]
-	}
-	return sum % len(h.store)
 }
 
-func (h *HashT) Set(key string, value interface{}) {
-	list := &h.store[h.hash(key)]
+func (h *HashT) Get(key string) interface{} {
+	value, _ := h.GetOk(key)
+	return value
+}
+
+func (h *HashT) GetOk(key string) (interface{}, bool) {
+	node := getNode(h.store, key)
+	if node != nil {
+		data := (node.Get()).([]interface{})
+		value := data[1]
+		return value, true
+	} else {
+		return nil, false
+	}
+}
+
+func (h *HashT) Remove(key string) bool {
+	node := getNode(h.store, key)
+	if node != nil {
+		list := &h.store[h.hash(key)]
+		if list.DeleteNode(node) {
+			h.count--
+			return true
+		}
+		return false
+	} else {
+		return false
+	}
+}
+
+func (h *HashT) hash(key string) int {
+	return hash256(key, len(h.store))
+}
+
+func (h *HashT) resize() {
+	fmt.Println()
+	if h.count*100/len(h.store) > 70 {
+		store := make([]ll.List, 2*len(h.store))
+
+		for _, bucket := range h.store {
+			bucket.Tour(func(n *ll.Node, i int) bool {
+				if data, ok := (n.Get()).([]interface{}); ok {
+					key := data[0].(string)
+					value := data[1]
+					fmt.Printf("\t\tHash[\"%s\"]:%d\n", key, hash256(key, len(store)))
+					set(store, key, value)
+				}
+				return false
+			})
+		}
+		h.store = store
+	}
+}
+
+func hash256(key string, l int) int {
+	h := sha256.Sum256([]byte(key))
+	sum := 0
+	for _, v := range h {
+		sum += int(v)
+	}
+	return sum % l
+}
+
+// func hash(key string, l int) int {
+// 	filter := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+// 	primeNums := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
+// 		59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
+// 		139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223,
+// 		227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307}
+// 	sum := 0
+// 	for _, k := range key {
+// 		index := strings.IndexRune(filter, k)
+// 		sum += primeNums[index]
+// 	}
+// 	return sum % l
+// }
+
+func set(store []ll.List, key string, value interface{}) bool {
+	list := &store[hash256(key, len(store))]
 
 	isNew := true
 	list.Tour(func(n *ll.Node, i int) bool {
@@ -53,63 +119,14 @@ func (h *HashT) Set(key string, value interface{}) {
 	})
 	if isNew {
 		list.AddValue([]interface{}{key, value})
-		h.count++
-	}
-}
-
-// func (h *HashT) set(store []ll.List, key string, value interface{}) {
-// 	list := &store[h.hash(key)]
-
-// 	detected := false
-// 	list.Tour(func(n *ll.Node, i int) bool {
-// 		if vint, ok := (n.Get()).([]interface{}); ok {
-// 			if k, ok := vint[0].(string); ok {
-// 				if k == key {
-// 					n.Set([]interface{}{key, value})
-// 					detected = true
-// 					return true
-// 				}
-// 			}
-// 		}
-// 		return false
-// 	})
-// 	if !detected {
-
-// 		list.AddValue([]interface{}{key, value})
-// 		h.count++
-// 	}
-// }
-
-func (h *HashT) Get(key string) interface{} {
-	value, _ := h.GetOk(key)
-	return value
-}
-
-func (h *HashT) GetOk(key string) (interface{}, bool) {
-	node := h.get(key)
-	if node != nil {
-		data := (node.Get()).([]interface{})
-		value := data[1]
-		return value, true
-	} else {
-		return nil, false
-	}
-}
-
-func (h *HashT) Remove(key string) bool {
-	node := h.get(key)
-	if node != nil {
-		list := &h.store[h.hash(key)]
-		list.DeleteNode(node)
-		h.count--
 		return true
 	} else {
 		return false
 	}
 }
 
-func (h *HashT) get(key string) *ll.Node {
-	list := &h.store[h.hash(key)]
+func getNode(store []ll.List, key string) *ll.Node {
+	list := &store[hash256(key, len(store))]
 	var value *ll.Node
 	list.Tour(func(n *ll.Node, i int) bool {
 		if vint, ok := (n.Get()).([]interface{}); ok {
@@ -123,47 +140,4 @@ func (h *HashT) get(key string) *ll.Node {
 		return false
 	})
 	return value
-}
-
-// func (h *HashT) resize() {
-// 	if h.count*100/len(h.store) > 70 {
-// 		store = make([]ll.List, 2*len(h.store))
-// 		for _, bucket := range h.store {
-// 			bucket.Tour(func(n *ll.Node, i int) bool {
-// 				if data, ok := (n.Get()).([]interface{}); ok {
-// 					key := data[0].(string)
-// 					value := data[1]
-// 				}
-
-// 			})
-// 		}
-// 	}
-// }
-
-func primeNumber(n int) *ll.List {
-	list := ll.New()
-	for i := n; i > 1; i-- {
-		list.AddValue(i)
-	}
-	// fmt.Printf("Length:%d\n\n", list.Length())
-
-	list.Tour(func(node1 *ll.Node, i int) bool {
-		// fmt.Printf("\n#%d-----------{%v}----------- Len:%d\n", i, node1, list.Length())
-		list.Tour(func(node2 *ll.Node, j int) bool {
-			// fmt.Printf("node1: %v\t|%v:%v|\t node2: %v\n", node1, list.Head(), list.Tail(), node2)
-			v1 := ll.ToInt(node1.Get())
-			v2 := ll.ToInt(node2.Get())
-
-			if v2%v1 == 0 && v2 != v1 {
-				// fmt.Printf("%d\t--> Del:\t%v\t\tLen:%d\n", j, node2, list.Length())
-				list.DeleteNode(node2)
-			} else {
-				// fmt.Printf("%d\t--> NotDel:\t%v\t\tLen:%d\n", j, node2, list.Length())
-				_ = "skip"
-			}
-			return false
-		})
-		return false
-	})
-	return list
 }
